@@ -1,0 +1,85 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ── Location ─────────────────────────────────────────────────────── -->
+    <!-- Fine location = GPS-quality coordinates                            -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Coarse location = network/cell-tower fallback                      -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Background location = required on Android 10+ (API 29+) for       -->
+    <!-- tracking while the app is not in the foreground                    -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ── Foreground Service ───────────────────────────────────────────── -->
+    <!-- Allows creating a service visible to the user via notification     -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ (API 34+): must declare the TYPE of foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- ── Notifications ───────────────────────────────────────────────── -->
+    <!-- Android 13+ (API 33+): user must grant notification permission     -->
+    <!-- The foreground service notification requires this                  -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ── Wake Lock ────────────────────────────────────────────────────── -->
+    <!-- Keeps the CPU running when the screen is off so the timer fires    -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:label="Location Tracker"
+        android:name=".MainApplication"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          flutter_background_service declares this service internally, but
+          without a foregroundServiceType. Android 10+ requires that any
+          foreground service accessing location declares its type explicitly.
+          tools:replace merges our declaration over the plugin's.
+        -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false"
+            tools:replace="android:foregroundServiceType,android:exported" />
+
+        <!--
+          Google Maps API key.
+          Replace YOUR_GOOGLE_MAPS_API_KEY with a key from the Google Cloud Console.
+          Enable: Maps SDK for Android
+          Restrict to: Android apps → package name + SHA-1 fingerprint
+        -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
+</manifest>

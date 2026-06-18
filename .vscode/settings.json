@@ -1,0 +1,20 @@
+{
+  "terminal.integrated.env.windows": {
+    "GRADLE_USER_HOME": "D:\\gradle-home",
+    "TEMP": "D:\\Temp",
+    "TMP": "D:\\Temp",
+    "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr",
+    "PATH": "C:\\Users\\ragav\\AppData\\Local\\Android\\sdk\\platform-tools;C:\\Program Files\\Android\\Android Studio\\jbr\\bin;${env:PATH}"
+  },
+  "dart.flutterRunAdditionalArgs": [],
+  "dart.env": {
+    "GRADLE_USER_HOME": "D:\\gradle-home",
+    "TEMP": "D:\\Temp",
+    "TMP": "D:\\Temp",
+    "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr"
+  },
+  "[kotlin]": {
+    "editor.formatOnSave": true
+  },
+  "java.configuration.updateBuildConfiguration": "interactive"
+}

@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (debug)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "env": {
+        "GRADLE_USER_HOME": "D:\\gradle-home",
+        "TEMP": "D:\\Temp",
+        "TMP": "D:\\Temp"
+      }
+    },
+    {
+      "name": "Flutter (profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "env": {
+        "GRADLE_USER_HOME": "D:\\gradle-home",
+        "TEMP": "D:\\Temp",
+        "TMP": "D:\\Temp"
+      }
+    },
+    {
+      "name": "Flutter (release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "env": {
+        "GRADLE_USER_HOME": "D:\\gradle-home",
+        "TEMP": "D:\\Temp",
+        "TMP": "D:\\Temp"
+      }
+    }
+  ]
+}
