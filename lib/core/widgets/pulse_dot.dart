@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// Animated pulsing dot — pulses when [isActive] is true, static grey otherwise.
 class PulseDot extends StatefulWidget {
   final bool isActive;
   final double size;
@@ -22,11 +21,9 @@ class PulseDot extends StatefulWidget {
 
 class _PulseDotState extends State<PulseDot>
     with SingleTickerProviderStateMixin {
-  // Initialized eagerly in initState (not as lazy field declarations) so that
-  // dispose() never triggers the initializer on an already-deactivated element.
   late final AnimationController _controller;
-  late final Animation<double>   _scale;
-  late final Animation<double>   _opacity;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
@@ -35,10 +32,14 @@ class _PulseDotState extends State<PulseDot>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _scale = Tween<double>(begin: 1.0, end: 2.6)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _opacity = Tween<double>(begin: 0.65, end: 0.0)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 2.6,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _opacity = Tween<double>(
+      begin: 0.65,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     if (widget.isActive) _controller.repeat();
   }
 

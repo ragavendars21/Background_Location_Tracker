@@ -46,7 +46,6 @@ class AppTextStyles {
     height: 1.4,
   );
 
-  // All-caps micro labels — use .copyWith(color:) to override
   static const TextStyle label = TextStyle(
     fontSize: 10,
     fontWeight: FontWeight.w700,

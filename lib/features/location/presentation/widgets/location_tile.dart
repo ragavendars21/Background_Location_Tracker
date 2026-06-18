@@ -24,7 +24,6 @@ class LocationTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Index badge
             Container(
               width: 38,
               height: 38,
@@ -42,7 +41,7 @@ class LocationTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.md),
-            // Coordinates + meta
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +73,8 @@ class LocationTile extends StatelessWidget {
                         child: _Tag(
                           icon: Icons.access_time_rounded,
                           label: DateFormatter.timestampToShort(
-                              location.timestamp),
+                            location.timestamp,
+                          ),
                           color: AppColors.textMuted,
                           overflow: true,
                         ),

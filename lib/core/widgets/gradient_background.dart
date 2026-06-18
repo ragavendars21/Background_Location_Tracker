@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// Full-screen gradient background with decorative ambient glow blobs.
 class GradientBackground extends StatelessWidget {
   final Widget child;
 

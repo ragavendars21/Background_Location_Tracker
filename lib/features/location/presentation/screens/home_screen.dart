@@ -19,10 +19,6 @@ import '../widgets/location_tile.dart';
 import 'location_list_screen.dart';
 import '../../../../features/map/presentation/screens/map_screen.dart';
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
-/// ConsumerStatefulWidget = StatefulWidget + Riverpod ref.
-/// Use when the widget needs both local animation state AND provider data.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -30,43 +26,16 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-/// ConsumerState gives us:
-///   ref  — the full Riverpod provider graph (read, watch, listen)
-///   this — regular StatefulWidget state (AnimationController, Timer)
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
-
-  // Single controller drives all staggered card entrances via Interval curves.
-  // One controller is cheaper than N controllers and easy to explain in interviews.
   late final AnimationController _entryCtrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1000),
   );
 
-  // ── Session timer (ValueNotifier pattern) ─────────────────────────────────
-  //
-  // WHY VALUENOTIFIER INSTEAD OF SETSTATE (performance optimization):
-  // ─────────────────────────────────────────────────────────────────
-  // The previous implementation called `setState(() => _sessionSeconds++)` every
-  // second. setState() marks the ENTIRE HomeScreen element as dirty, so Flutter
-  // rebuilds the full widget tree — all 9 cards, the stagger animation wrappers,
-  // the recent locations list — just to update two digits on a timer display.
-  //
-  // With ValueNotifier + ValueListenableBuilder:
-  //   • _sessionTick.value++ does NOT trigger a setState on HomeScreen.
-  //   • Only the ValueListenableBuilder widgets that subscribe to _sessionTick
-  //     rebuild — and those widgets contain only the timer Text node.
-  //
-  // Result: 58 fewer widget rebuilds per minute during an active session.
   final ValueNotifier<int> _sessionTick = ValueNotifier<int>(0);
   Timer? _sessionTimer;
 
-  // Polls SQLite while a session is active so the points counter and recent-
-  // locations list visibly update as the background isolate records new
-  // fixes. Without this, loadLocations() only re-runs on init, stop(), or a
-  // manual pull-to-refresh — the background service can be inserting rows
-  // every 60 s while the dashboard keeps showing stale data until the user
-  // stops tracking, which looks exactly like "recording isn't happening".
   Timer? _refreshTimer;
 
   @override
@@ -79,21 +48,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _sessionTimer?.cancel();
     _refreshTimer?.cancel();
-    _sessionTick.dispose();  // always dispose ValueNotifier to release listeners
+    _sessionTick.dispose();
     _entryCtrl.dispose();
     super.dispose();
   }
 
-  // ── Session timer ─────────────────────────────────────────────────────────
-
   void _startSessionTimer() {
     _sessionTick.value = 0;
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _sessionTick.value++; // no setState — only subscribed ValueListenableBuilders rebuild
+      _sessionTick.value++;
     });
 
-    // 15 s is frequent enough to catch each 60 s GPS capture promptly (plus
-    // the immediate first capture on start) without hammering SQLite.
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       ref.read(locationProvider.notifier).loadLocations();
     });
@@ -107,8 +72,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _refreshTimer = null;
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
   Future<void> _onStart() async {
     final result = await LocationPermissionService.requestAll();
     if (!mounted) return;
@@ -117,7 +80,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       case PermissionResult.granted:
         break;
       case PermissionResult.denied:
-        _showErrorSnackBar('Location permission denied. Tap START again to retry.');
+        _showErrorSnackBar(
+          'Location permission denied. Tap START again to retry.',
+        );
         return;
       case PermissionResult.deniedForever:
         _showPermissionSettingsDialog();
@@ -151,7 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         transitionsBuilder: (_, anim, secondary, child) => SlideTransition(
           position: Tween<Offset>(
             begin: const Offset(1, 0),
-            end:   Offset.zero,
+            end: Offset.zero,
           ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
           child: child,
         ),
@@ -166,20 +131,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         pageBuilder: (_, anim, secondary) => const MapScreen(),
         transitionsBuilder: (_, anim, secondary, child) => FadeTransition(
           opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
-          child:   child,
+          child: child,
         ),
       ),
     );
   }
 
-  // ── Dialog / snackbar helpers ─────────────────────────────────────────────
-
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content:         Text(message),
-      behavior:        SnackBarBehavior.floating,
-      backgroundColor: AppColors.error,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.error,
+      ),
+    );
   }
 
   void _showPermissionSettingsDialog() {
@@ -190,7 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
-        title:   Text('Permission Required', style: AppTextStyles.h2),
+        title: Text('Permission Required', style: AppTextStyles.h2),
         content: Text(
           'Background location is permanently denied.\n\n'
           'Go to Settings → Location → "Allow all the time".',
@@ -224,7 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
-        title:   Text('GPS Disabled', style: AppTextStyles.h2),
+        title: Text('GPS Disabled', style: AppTextStyles.h2),
         content: Text(
           'Enable location services on your device to start tracking.',
           style: AppTextStyles.body,
@@ -249,16 +214,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ── Stagger helper ────────────────────────────────────────────────────────
-
-  /// Wraps [child] in a fade + upward slide keyed to [start] (0.0–1.0).
-  ///
-  /// How it works:
-  ///   _entryCtrl runs 0→1 over 1 second.
-  ///   Interval(start, start+0.5) maps the parent t to 0→1 ONLY within that
-  ///   window — cards entered at different [start] values appear sequentially.
-  ///   Using AnimatedBuilder's `child:` parameter caches the subtree so it
-  ///   is built once and reused across every animation frame — zero extra builds.
   Widget _stagger({required Widget child, required double start}) {
     return AnimatedBuilder(
       animation: _entryCtrl,
@@ -281,12 +236,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    // ref.watch() keeps this widget subscribed to state changes.
-    // Any LocationState or BatteryState update triggers a rebuild automatically.
     final loc = ref.watch(locationProvider);
     final bat = ref.watch(batteryProvider);
 
@@ -294,13 +245,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       backgroundColor: AppColors.bgPrimary,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
-      // Map FAB — appears only when there is data to visualise
+
       floatingActionButton: loc.locations.isNotEmpty
           ? FloatingActionButton.small(
-              onPressed:       _navigateToMap,
+              onPressed: _navigateToMap,
               backgroundColor: AppColors.brand,
-              tooltip:         'View on Map',
-              child:           const Icon(Icons.map_rounded, color: Colors.white, size: 20),
+              tooltip: 'View on Map',
+              child: const Icon(
+                Icons.map_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             )
           : null,
       body: GradientBackground(
@@ -308,58 +263,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenH,
-              vertical:   AppSpacing.screenV,
+              vertical: AppSpacing.screenV,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 1. App Header ───────────────────────────────────────────
                 _stagger(child: _buildPageHeader(), start: 0.0),
                 const SizedBox(height: AppSpacing.lg),
 
-                // ── 2. Tracking Status Card ─────────────────────────────────
                 _stagger(
                   child: _TrackingStatusCard(
-                    isTracking:    loc.isTracking,
-                    sessionTick:   _sessionTick,
+                    isTracking: loc.isTracking,
+                    sessionTick: _sessionTick,
                     locationCount: loc.locationCount,
                   ),
                   start: 0.05,
                 ),
                 const SizedBox(height: AppSpacing.sm + 4),
 
-                // ── 3. Battery Card  +  7. Location Counter ─────────────────
                 _stagger(
                   child: Row(
                     children: [
                       Expanded(
                         child: _BatteryCard(
-                          level:      bat.level,
+                          level: bat.level,
                           isCharging: bat.isCharging,
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm + 2),
-                      Expanded(
-                        child: _PointsCard(count: loc.locationCount),
-                      ),
+                      Expanded(child: _PointsCard(count: loc.locationCount)),
                     ],
                   ),
                   start: 0.15,
                 ),
 
-                // ── 6. Active Session Information ───────────────────────────
                 if (loc.isTracking && loc.currentSession != null) ...[
                   const SizedBox(height: AppSpacing.sm + 4),
                   _stagger(
                     child: _ActiveSessionCard(
-                      session:     loc.currentSession!,
+                      session: loc.currentSession!,
                       sessionTick: _sessionTick,
                     ),
                     start: 0.22,
                   ),
                 ],
 
-                // ── 8. Last Recorded Location ───────────────────────────────
                 if (loc.locations.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm + 4),
                   _stagger(
@@ -368,19 +316,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ],
 
-                // ── 4 & 5. Start / Stop Buttons ────────────────────────────
                 const SizedBox(height: AppSpacing.xl),
                 _stagger(
                   child: _CTASection(
                     isTracking: loc.isTracking,
-                    isBusy:     loc.isBusy,
-                    onStart:    _onStart,
-                    onStop:     _onStop,
+                    isBusy: loc.isBusy,
+                    onStart: _onStart,
+                    onStop: _onStop,
                   ),
                   start: 0.35,
                 ),
 
-                // ── 9. Recent Locations List ────────────────────────────────
                 if (loc.locations.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xl),
                   _stagger(
@@ -392,7 +338,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ],
 
-                // Error banner
                 if (loc.error != null) ...[
                   const SizedBox(height: AppSpacing.md),
                   _stagger(
@@ -411,40 +356,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   AppBar _buildAppBar() => AppBar(
-        backgroundColor: Colors.transparent,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(
-                shape:    BoxShape.circle,
-                gradient: AppColors.startGradient,
-              ),
-            ),
-            const SizedBox(width: 7),
-            Text('Location Tracker', style: AppTextStyles.h2),
-          ],
+    backgroundColor: Colors.transparent,
+    title: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppColors.startGradient,
+          ),
         ),
-      );
+        const SizedBox(width: 7),
+        Text('Location Tracker', style: AppTextStyles.h2),
+      ],
+    ),
+  );
 
   Widget _buildPageHeader() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Dashboard', style: AppTextStyles.display),
-          const SizedBox(height: 4),
-          Text('GPS tracking · Battery monitoring', style: AppTextStyles.body),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Dashboard', style: AppTextStyles.display),
+      const SizedBox(height: 4),
+      Text('GPS tracking · Battery monitoring', style: AppTextStyles.body),
+    ],
+  );
 }
 
-// ── 2. Tracking Status Card ───────────────────────────────────────────────────
-
 class _TrackingStatusCard extends StatelessWidget {
-  final bool                 isTracking;
+  final bool isTracking;
   final ValueListenable<int> sessionTick;
-  final int                  locationCount;
+  final int locationCount;
 
   const _TrackingStatusCard({
     required this.isTracking,
@@ -458,16 +401,15 @@ class _TrackingStatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       gradient: isTracking
           ? LinearGradient(
-              begin:  Alignment.topLeft,
-              end:    Alignment.bottomRight,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
                 AppColors.active.withValues(alpha: 0.10),
                 AppColors.accent.withValues(alpha: 0.04),
               ],
             )
           : null,
-      borderColor:
-          isTracking ? AppColors.active.withValues(alpha: 0.35) : null,
+      borderColor: isTracking ? AppColors.active.withValues(alpha: 0.35) : null,
       child: Column(
         children: [
           Row(
@@ -488,37 +430,35 @@ class _TrackingStatusCard extends StatelessWidget {
           IntrinsicHeight(
             child: Row(
               children: [
-                // ValueListenableBuilder rebuilds ONLY this column every second.
-                // The two columns beside it (POINTS, INTERVAL) are untouched.
                 ValueListenableBuilder<int>(
                   valueListenable: sessionTick,
                   builder: (_, ticks, _) {
-                    final m     = ticks ~/ 60;
-                    final s     = ticks  % 60;
+                    final m = ticks ~/ 60;
+                    final s = ticks % 60;
                     final label = isTracking
                         ? '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
                         : '--:--';
                     return _StatCol(
-                      icon:      Icons.timer_outlined,
+                      icon: Icons.timer_outlined,
                       iconColor: AppColors.accent,
-                      value:     label,
-                      label:     'SESSION',
+                      value: label,
+                      label: 'SESSION',
                     );
                   },
                 ),
                 _VertDivider(),
                 _StatCol(
-                  icon:      Icons.location_on_outlined,
+                  icon: Icons.location_on_outlined,
                   iconColor: AppColors.brand,
-                  value:     '$locationCount',
-                  label:     'POINTS',
+                  value: '$locationCount',
+                  label: 'POINTS',
                 ),
                 _VertDivider(),
                 _StatCol(
-                  icon:      Icons.access_time_rounded,
+                  icon: Icons.access_time_rounded,
                   iconColor: AppColors.purple,
-                  value:     '60s',
-                  label:     'INTERVAL',
+                  value: '60s',
+                  label: 'INTERVAL',
                 ),
               ],
             ),
@@ -551,8 +491,8 @@ class _LiveBadge extends StatelessWidget {
       child: Text(
         isTracking ? 'LIVE' : 'OFF',
         style: AppTextStyles.label.copyWith(
-          color:         isTracking ? AppColors.active : AppColors.textMuted,
-          fontSize:      9,
+          color: isTracking ? AppColors.active : AppColors.textMuted,
+          fontSize: 9,
           letterSpacing: 1.8,
         ),
       ),
@@ -562,9 +502,9 @@ class _LiveBadge extends StatelessWidget {
 
 class _StatCol extends StatelessWidget {
   final IconData icon;
-  final Color    iconColor;
-  final String   value;
-  final String   label;
+  final Color iconColor;
+  final String value;
+  final String label;
 
   const _StatCol({
     required this.icon,
@@ -584,7 +524,7 @@ class _StatCol extends StatelessWidget {
             value,
             style: AppTextStyles.h2.copyWith(
               fontWeight: FontWeight.w700,
-              fontSize:   18,
+              fontSize: 18,
             ),
           ),
           const SizedBox(height: 2),
@@ -598,25 +538,23 @@ class _StatCol extends StatelessWidget {
 class _VertDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-        width:  1,
-        color:  AppColors.glassBorder,
-        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      );
+    width: 1,
+    color: AppColors.glassBorder,
+    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+  );
 }
 
-// ── 3. Battery Card ───────────────────────────────────────────────────────────
-
 class _BatteryCard extends StatelessWidget {
-  final int?  level;
-  final bool  isCharging;
+  final int? level;
+  final bool isCharging;
 
   const _BatteryCard({this.level, this.isCharging = false});
 
   Color get _color {
     if (level == null) return AppColors.textMuted;
-    if (isCharging)    return AppColors.accent;
-    if (level! >= 50)  return AppColors.active;
-    if (level! >= 20)  return AppColors.warning;
+    if (isCharging) return AppColors.accent;
+    if (level! >= 50) return AppColors.active;
+    if (level! >= 20) return AppColors.warning;
     return AppColors.error;
   }
 
@@ -633,19 +571,22 @@ class _BatteryCard extends StatelessWidget {
                 isCharging
                     ? Icons.battery_charging_full_rounded
                     : Icons.bolt_rounded,
-                size:  12,
+                size: 12,
                 color: _color,
               ),
               const SizedBox(width: 4),
-              Text(isCharging ? 'CHARGING' : 'BATTERY', style: AppTextStyles.label),
+              Text(
+                isCharging ? 'CHARGING' : 'BATTERY',
+                style: AppTextStyles.label,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm + 2),
           Text(
             level != null ? '$level%' : '--',
             style: AppTextStyles.display.copyWith(
-              fontSize:   28,
-              color:      _color,
+              fontSize: 28,
+              color: _color,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -653,10 +594,10 @@ class _BatteryCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value:           level != null ? level! / 100.0 : 0,
+              value: level != null ? level! / 100.0 : 0,
               backgroundColor: AppColors.glassWhite,
-              valueColor:      AlwaysStoppedAnimation<Color>(_color),
-              minHeight:       4,
+              valueColor: AlwaysStoppedAnimation<Color>(_color),
+              minHeight: 4,
             ),
           ),
         ],
@@ -664,8 +605,6 @@ class _BatteryCard extends StatelessWidget {
     );
   }
 }
-
-// ── 7. Points Card ────────────────────────────────────────────────────────────
 
 class _PointsCard extends StatelessWidget {
   final int count;
@@ -682,7 +621,11 @@ class _PointsCard extends StatelessWidget {
             children: [
               ShaderMask(
                 shaderCallback: (b) => AppColors.brandGradient.createShader(b),
-                child: const Icon(Icons.location_on_rounded, size: 12, color: Colors.white),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  size: 12,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 4),
               Text('RECORDED', style: AppTextStyles.label),
@@ -694,8 +637,8 @@ class _PointsCard extends StatelessWidget {
             child: Text(
               '$count',
               style: AppTextStyles.display.copyWith(
-                fontSize:   28,
-                color:      Colors.white,
+                fontSize: 28,
+                color: Colors.white,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -711,21 +654,14 @@ class _PointsCard extends StatelessWidget {
   }
 }
 
-// ── 6. Active Session Card ────────────────────────────────────────────────────
-
-/// Shown only while tracking is active — displays session identity and elapsed time.
 class _ActiveSessionCard extends StatelessWidget {
-  final TrackingSession      session;
+  final TrackingSession session;
   final ValueListenable<int> sessionTick;
 
-  const _ActiveSessionCard({
-    required this.session,
-    required this.sessionTick,
-  });
+  const _ActiveSessionCard({required this.session, required this.sessionTick});
 
   @override
   Widget build(BuildContext context) {
-    // Show first 8 chars of UUID in uppercase for a clean terminal-style look.
     final shortId = '${session.id.substring(0, 8).toUpperCase()}···';
     final startedAt = DateFormatter.timestampToShort(
       session.startedAt.toIso8601String(),
@@ -734,8 +670,8 @@ class _ActiveSessionCard extends StatelessWidget {
     return GlassCard(
       borderColor: AppColors.active.withValues(alpha: 0.28),
       gradient: LinearGradient(
-        begin:  Alignment.topLeft,
-        end:    Alignment.bottomRight,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [
           AppColors.active.withValues(alpha: 0.06),
           AppColors.accent.withValues(alpha: 0.02),
@@ -743,11 +679,11 @@ class _ActiveSessionCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ── Header ───────────────────────────────────────────────────────
           Row(
             children: [
               Container(
-                width: 6, height: 6,
+                width: 6,
+                height: 6,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.active,
@@ -759,16 +695,16 @@ class _ActiveSessionCard extends StatelessWidget {
                 style: AppTextStyles.label.copyWith(color: AppColors.active),
               ),
               const Spacer(),
-              // Only this Text rebuilds every second — not the whole card.
+
               ValueListenableBuilder<int>(
                 valueListenable: sessionTick,
                 builder: (_, ticks, _) {
                   final m = ticks ~/ 60;
-                  final s = ticks  % 60;
+                  final s = ticks % 60;
                   return Text(
                     '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
                     style: AppTextStyles.mono.copyWith(
-                      color:    AppColors.accent,
+                      color: AppColors.accent,
                       fontSize: 12,
                     ),
                   );
@@ -778,11 +714,9 @@ class _ActiveSessionCard extends StatelessWidget {
           ),
           const Divider(color: AppColors.glassBorder, height: 20),
 
-          // ── Session ID row ────────────────────────────────────────────────
           _InfoRow(label: 'SESSION ID', value: shortId),
           const SizedBox(height: 6),
 
-          // ── Start time row ────────────────────────────────────────────────
           _InfoRow(label: 'STARTED', value: startedAt),
         ],
       ),
@@ -804,7 +738,7 @@ class _InfoRow extends StatelessWidget {
         Text(
           value,
           style: AppTextStyles.mono.copyWith(
-            color:    AppColors.textPrimary,
+            color: AppColors.textPrimary,
             fontSize: 12,
           ),
         ),
@@ -812,8 +746,6 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
-
-// ── 8. Last Recorded Location ─────────────────────────────────────────────────
 
 class _LastLocationCard extends StatelessWidget {
   final LocationEntity location;
@@ -824,18 +756,22 @@ class _LastLocationCard extends StatelessWidget {
     return GlassCard(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical:   AppSpacing.md - 2,
+        vertical: AppSpacing.md - 2,
       ),
       child: Row(
         children: [
           Container(
-            width:  40,
+            width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient:     AppColors.brandGradient,
+              gradient: AppColors.brandGradient,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             ),
-            child: const Icon(Icons.my_location_rounded, size: 18, color: Colors.white),
+            child: const Icon(
+              Icons.my_location_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -847,7 +783,9 @@ class _LastLocationCard extends StatelessWidget {
                 Text(
                   '${location.latitude.toStringAsFixed(6)}°N  '
                   '${location.longitude.toStringAsFixed(6)}°E',
-                  style: AppTextStyles.mono.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.mono.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 Text(
                   'Accuracy ±${location.accuracy.toStringAsFixed(1)} m  ·  '
@@ -863,17 +801,9 @@ class _LastLocationCard extends StatelessWidget {
   }
 }
 
-// ── 4 & 5. CTA Buttons (Start + Stop) ────────────────────────────────────────
-
-/// Two separate full-width buttons.
-///
-/// Why two buttons instead of one toggle?
-///   • Users can see both options at once — no mental model required.
-///   • Disabled state makes it immediately obvious which action is available.
-///   • Easier to explain in interviews: each button has a single responsibility.
 class _CTASection extends StatelessWidget {
-  final bool         isTracking;
-  final bool         isBusy;
+  final bool isTracking;
+  final bool isBusy;
   final VoidCallback onStart;
   final VoidCallback onStop;
 
@@ -888,26 +818,25 @@ class _CTASection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 4. START TRACKING
         _TrackingButton(
-          label:     'START TRACKING',
-          icon:      Icons.play_arrow_rounded,
-          gradient:  AppColors.startGradient,
+          label: 'START TRACKING',
+          icon: Icons.play_arrow_rounded,
+          gradient: AppColors.startGradient,
           glowColor: AppColors.active,
-          enabled:   !isTracking && !isBusy,
-          loading:   isBusy && !isTracking,
-          onTap:     onStart,
+          enabled: !isTracking && !isBusy,
+          loading: isBusy && !isTracking,
+          onTap: onStart,
         ),
         const SizedBox(height: 10),
-        // 5. STOP TRACKING
+
         _TrackingButton(
-          label:     'STOP TRACKING',
-          icon:      Icons.stop_rounded,
-          gradient:  AppColors.stopGradient,
+          label: 'STOP TRACKING',
+          icon: Icons.stop_rounded,
+          gradient: AppColors.stopGradient,
           glowColor: AppColors.error,
-          enabled:   isTracking && !isBusy,
-          loading:   isBusy && isTracking,
-          onTap:     onStop,
+          enabled: isTracking && !isBusy,
+          loading: isBusy && isTracking,
+          onTap: onStop,
         ),
       ],
     );
@@ -915,12 +844,12 @@ class _CTASection extends StatelessWidget {
 }
 
 class _TrackingButton extends StatelessWidget {
-  final String     label;
-  final IconData   icon;
-  final Gradient   gradient;
-  final Color      glowColor;
-  final bool       enabled;
-  final bool       loading;
+  final String label;
+  final IconData icon;
+  final Gradient gradient;
+  final Color glowColor;
+  final bool enabled;
+  final bool loading;
   final VoidCallback onTap;
 
   const _TrackingButton({
@@ -935,38 +864,35 @@ class _TrackingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // AnimatedOpacity dims the button (including its glow shadow) when disabled.
-    // The transition is smooth (300ms) so the state change feels intentional.
     return AnimatedOpacity(
-      opacity:  enabled ? 1.0 : 0.28,
+      opacity: enabled ? 1.0 : 0.28,
       duration: const Duration(milliseconds: 300),
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: Container(
-          width:  double.infinity,
+          width: double.infinity,
           height: 60,
           decoration: BoxDecoration(
-            gradient:     gradient,
+            gradient: gradient,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
             boxShadow: [
               BoxShadow(
-                color:      glowColor.withValues(alpha: 0.32),
+                color: glowColor.withValues(alpha: 0.32),
                 blurRadius: 20,
-                offset:     const Offset(0, 8),
+                offset: const Offset(0, 8),
               ),
             ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Swap icon for a spinner when this specific button triggered the load
               if (loading)
                 const SizedBox(
-                  width:  20,
+                  width: 20,
                   height: 20,
-                  child:  CircularProgressIndicator(
+                  child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color:       Colors.white,
+                    color: Colors.white,
                   ),
                 )
               else
@@ -981,13 +907,9 @@ class _TrackingButton extends StatelessWidget {
   }
 }
 
-// ── 9. Recent Locations List ──────────────────────────────────────────────────
-
-/// Inline preview of the 5 most recent GPS points.
-/// "View All →" navigates to the full LocationHistoryScreen.
 class _RecentLocationsSection extends StatelessWidget {
   final List<LocationEntity> locations;
-  final VoidCallback         onViewAll;
+  final VoidCallback onViewAll;
 
   const _RecentLocationsSection({
     required this.locations,
@@ -1001,7 +923,6 @@ class _RecentLocationsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Section header ────────────────────────────────────────────────
         Row(
           children: [
             Text('Recent Locations', style: AppTextStyles.h2),
@@ -1017,7 +938,7 @@ class _RecentLocationsSection extends StatelessWidget {
                   ),
                   const Icon(
                     Icons.chevron_right_rounded,
-                    size:  15,
+                    size: 15,
                     color: AppColors.brand,
                   ),
                 ],
@@ -1027,22 +948,17 @@ class _RecentLocationsSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
 
-        // ── Location tiles (last 5) ───────────────────────────────────────
-        // LocationTile adds its own bottom padding (AppSpacing.sm + 4),
-        // so no additional spacing is needed between tiles.
         ...recent.asMap().entries.map(
           (entry) => LocationTile(
-            key:      ValueKey(entry.value.id ?? entry.key),
+            key: ValueKey(entry.value.id ?? entry.key),
             location: entry.value,
-            index:    entry.key + 1,
+            index: entry.key + 1,
           ),
         ),
       ],
     );
   }
 }
-
-// ── Error Banner ──────────────────────────────────────────────────────────────
 
 class _ErrorBanner extends StatelessWidget {
   final String message;
@@ -1053,14 +969,15 @@ class _ErrorBanner extends StatelessWidget {
     return GlassCard(
       borderColor: AppColors.error.withValues(alpha: 0.4),
       gradient: LinearGradient(
-        colors: [
-          AppColors.errorGlow,
-          Colors.transparent,
-        ],
+        colors: [AppColors.errorGlow, Colors.transparent],
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 18,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(

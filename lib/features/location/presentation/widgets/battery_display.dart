@@ -4,7 +4,6 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/glass_card.dart';
 
-/// Standalone battery card — used wherever a full battery display is needed.
 class BatteryDisplay extends StatelessWidget {
   final int? percentage;
 
